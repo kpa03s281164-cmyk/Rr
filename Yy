@@ -1,0 +1,110 @@
+-- ⚙️ การตั้งค่าเริ่มต้น
+local Settings = {
+    MenuPosition = {X = 150, Y = 100}, -- ตำแหน่งเริ่มต้นเมนู
+    MenuSize = {W = 140, H = 70},      -- ขนาดเมนูเล็ก
+    Enabled = true,                     -- สถานะเริ่มต้นเปิด
+    KeyBind = Enum.KeyCode.F,           -- ปุ่มกดใช้สกิล/ล็อกเป้า
+    SearchRadius = 300,                -- ระยะค้นหา NPC
+}
+
+-- 🧱 สร้างเมนูที่ลากได้
+local CoreGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+local UI = Instance.new("ScreenGui", CoreGui)
+UI.Name = "NPC_Lock_System"
+UI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- เมนูหลัก
+local Menu = Instance.new("Frame", UI)
+Menu.Name = "MainMenu"
+Menu.Size = UDim2.new(0, Settings.MenuSize.W, 0, Settings.MenuSize.H)
+Menu.Position = UDim2.new(0, Settings.MenuPosition.X, 0, Settings.MenuPosition.Y)
+Menu.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Menu.BorderSizePixel = 2
+Menu.BorderColor3 = Color3.fromRGB(80,180,255)
+Menu.Active = true
+Menu.Draggable = true -- ✅ ลากไปที่ไหนก็ได้
+
+-- ปุ่มเปิด/ปิด
+local ToggleBtn = Instance.new("TextButton", Menu)
+ToggleBtn.Name = "Toggle"
+ToggleBtn.Size = UDim2.new(0.9,0,0.45,0)
+ToggleBtn.Position = UDim2.new(0.05,0,0.1,0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(60,160,80)
+ToggleBtn.Text = "🔓 เปิดระบบ"
+ToggleBtn.TextColor3 = Color3.new(1,1,1)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextScaled = true
+
+-- ปุ่มล็อกเป้าหมาย
+local LockBtn = Instance.new("TextButton", Menu)
+LockBtn.Name = "LockBtn"
+LockBtn.Size = UDim2.new(0.9,0,0.35,0)
+LockBtn.Position = UDim2.new(0.05,0,0.6,0)
+LockBtn.BackgroundColor3 = Color3.fromRGB(40,120,200)
+LockBtn.Text = "🎯 ล็อก NPC ใกล้สุด"
+LockBtn.TextColor3 = Color3.new(1,1,1)
+LockBtn.Font = Enum.Font.Gotham
+LockBtn.TextScaled = true
+
+-- 🔄 ฟังก์ชันสลับเปิด/ปิด
+local function ToggleSystem()
+    Settings.Enabled = not Settings.Enabled
+    if Settings.Enabled then
+        ToggleBtn.Text = "🔒 ปิดระบบ"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200,60,80)
+    else
+        ToggleBtn.Text = "🔓 เปิดระบบ"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60,160,80)
+    end
+end
+ToggleBtn.MouseButton1Click:Connect(ToggleSystem)
+
+-- 🧠 หา NPC ที่ใกล้ที่สุด
+local function GetNearestNPC()
+    local LocalChar = game:GetService("Players").LocalPlayer.Character
+    if not LocalChar or not LocalChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local Root = LocalChar.HumanoidRootPart
+    local ShortestDist = Settings.SearchRadius
+    local Target = nil
+    
+    for _, Obj in ipairs(workspace:GetDescendants()) do
+        if Obj:IsA("Model") and Obj ~= LocalChar and Obj:FindFirstChild("Humanoid") and Obj:FindFirstChild("HumanoidRootPart") then
+            -- เพิ่มเงื่อนไขนิยาม NPC ตามต้องการได้ที่นี่ (เช่น Obj.Name ไม่เท่ากับผู้เล่น)
+            if not Obj:FindFirstChild("IsPlayer") then
+                local Dist = (Root.Position - Obj.HumanoidRootPart.Position).Magnitude
+                if Dist < ShortestDist then
+                    ShortestDist = Dist
+                    Target = Obj
+                end
+            end
+        end
+    end
+    return Target
+end
+
+-- ⚡ ฟังก์ชันล็อก+กดสกิล
+local function LockAndCast()
+    if not Settings.Enabled then return end
+    local TargetNPC = GetNearestNPC()
+    if TargetNPC then
+        -- 🎯 ตัวอย่าง: ทำงานกับเป้าหมายที่ล็อก -> ใส่โค้ดสกิล/การกระทำต่อ NPC ตรงนี้
+        print("✅ ล็อกสำเร็จ ->", TargetNPC.Name)
+        -- ตัวอย่างพื้นฐาน: ส่งไปยังตำแหน่งหรือใช้สกิล
+        -- [+] ใส่ตรงนี้: รหัสการใช้สกิล/โจมตี/เชื่อมต่อกับระบบของเกม
+    else
+        print("❌ ไม่พบ NPC ในระยะ")
+    end
+end
+
+-- เชื่อมปุ่มในเมนู
+LockBtn.MouseButton1Click:Connect(LockAndCast)
+
+-- รองรับปุ่มลัด
+game:GetService("UserInputService").InputBegan:Connect(function(Input, Proc)
+    if Proc then return end
+    if Input.KeyCode == Settings.KeyBind then
+        LockAndCast()
+    end
+end)
+
+print("📁 ระบบล็อก NPC พร้อมใช้งาน! ลากเมนูได้ ปุ่มลัด:", Settings.KeyBind.Name)
