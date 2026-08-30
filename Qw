@@ -1,0 +1,177 @@
+--==================================================
+-- GAME ASSIST MENU
+-- Q = Aim Lock
+-- J = ESP
+-- B = Pickup
+--==================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+--==================================================
+-- SETTINGS
+--==================================================
+
+local AimEnabled = false
+local ESPEnabled = false
+local PickupEnabled = true
+
+local AimPart = "Head"
+
+local FOVSize = 180
+local Smoothness = 0.20
+local MaxDistance = 3000
+
+local HoldTime = 0
+
+local CurrentTarget = nil
+local ESPObjects = {}
+
+--==================================================
+-- GUI
+--==================================================
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "GameAssist"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.Parent = PlayerGui
+
+--==================================================
+-- FOV CIRCLE
+--==================================================
+
+local FOV = Instance.new("Frame")
+FOV.Name = "FOV"
+FOV.AnchorPoint = Vector2.new(0.5, 0.5)
+FOV.Position = UDim2.fromScale(0.5, 0.5)
+FOV.Size = UDim2.fromOffset(FOVSize, FOVSize)
+FOV.BackgroundTransparency = 1
+FOV.BorderSizePixel = 0
+FOV.Parent = Gui
+
+local FOVCorner = Instance.new("UICorner")
+FOVCorner.CornerRadius = UDim.new(1, 0)
+FOVCorner.Parent = FOV
+
+local FOVStroke = Instance.new("UIStroke")
+FOVStroke.Thickness = 2
+FOVStroke.Transparency = 0.15
+FOVStroke.Parent = FOV
+
+--==================================================
+-- MENU
+--==================================================
+
+local Menu = Instance.new("Frame")
+Menu.Name = "Menu"
+Menu.Size = UDim2.fromOffset(145, 190)
+Menu.Position = UDim2.fromOffset(20, 100)
+Menu.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+Menu.BorderSizePixel = 0
+Menu.Active = true
+Menu.Parent = Gui
+
+local MenuCorner = Instance.new("UICorner")
+MenuCorner.CornerRadius = UDim.new(0, 8)
+MenuCorner.Parent = Menu
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 20)
+Title.BackgroundTransparency = 1
+Title.Text = "GAME ASSIST"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 10
+Title.Font = Enum.Font.GothamBold
+Title.Parent = Menu
+
+--==================================================
+-- BUTTON CREATOR
+--==================================================
+
+local function CreateButton(text, y)
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(1, -12, 0, 22)
+	Button.Position = UDim2.fromOffset(6, y)
+	Button.BackgroundColor3 = Color3.fromRGB(60, 60, 68)
+	Button.BorderSizePixel = 0
+	Button.TextColor3 = Color3.new(1, 1, 1)
+	Button.TextSize = 9
+	Button.Font = Enum.Font.GothamBold
+	Button.Text = text
+	Button.Parent = Menu
+
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0, 5)
+	Corner.Parent = Button
+
+	return Button
+end
+
+local AimButton = CreateButton("Q  AIM : OFF", 24)
+local ESPButton = CreateButton("J  ESP : OFF", 50)
+local PickupButton = CreateButton("B  PICKUP : ON", 76)
+
+local FOVText = Instance.new("TextLabel")
+FOVText.Size = UDim2.new(1, -12, 0, 18)
+FOVText.Position = UDim2.fromOffset(6, 102)
+FOVText.BackgroundTransparency = 1
+FOVText.TextColor3 = Color3.new(1, 1, 1)
+FOVText.TextSize = 9
+FOVText.TextXAlignment = Enum.TextXAlignment.Left
+FOVText.Font = Enum.Font.Gotham
+FOVText.Parent = Menu
+
+local MinusFOV = CreateButton("-", 123)
+MinusFOV.Size = UDim2.fromOffset(42, 20)
+
+local PlusFOV = CreateButton("+", 123)
+PlusFOV.Size = UDim2.fromOffset(42, 20)
+PlusFOV.Position = UDim2.fromOffset(51, 123)
+
+local ModeButton = CreateButton("HEAD", 123)
+ModeButton.Size = UDim2.fromOffset(45, 20)
+ModeButton.Position = UDim2.fromOffset(96, 123)
+
+local HoldText = Instance.new("TextLabel")
+HoldText.Size = UDim2.new(1, -12, 0, 16)
+HoldText.Position = UDim2.fromOffset(6, 148)
+HoldText.BackgroundTransparency = 1
+HoldText.TextColor3 = Color3.new(1, 1, 1)
+HoldText.TextSize = 9
+HoldText.TextXAlignment = Enum.TextXAlignment.Left
+HoldText.Font = Enum.Font.Gotham
+HoldText.Parent = Menu
+
+local MinusHold = CreateButton("-", 166)
+MinusHold.Size = UDim2.fromOffset(42, 18)
+
+local PlusHold = CreateButton("+", 166)
+PlusHold.Size = UDim2.fromOffset(42, 18)
+PlusHold.Position = UDim2.fromOffset(96, 166)
+
+--==================================================
+-- GUI UPDATE
+--==================================================
+
+local function UpdateGUI()
+
+	AimButton.Text =
+		"Q  AIM : " .. (AimEnabled and "ON" or "OFF")
+
+	ESPButton.Text =
+		"J  ESP : " .. (ESPEnabled and "ON" or "OFF")
+
+	PickupButton.Text =
+		"B  PICKUP : " .. (PickupEnabled and "ON" or "OFF")
+
+	FOVText.Text = "FOV : " .. FOVSize
+
+	HoldText.Text = "HOLD : " .. HoldTime .. "s"
+
+	ModeButton.Text =
+		AimPart == "Head" and "HEAD"
