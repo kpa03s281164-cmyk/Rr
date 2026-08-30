@@ -1,0 +1,133 @@
+-- ⚙️ การตั้งค่า
+local Settings = {
+    MenuPos = {X=80, Y=80},
+    MenuSize = {W=130, H=65},
+    SearchRadius = 600,          -- รัศมีค้นหา
+    LockKey = Enum.KeyCode.F,     -- ปุ่มล็อกเป้า
+    Enabled = true,
+    AimOffset = Vector3.new(0, 1.5, 0) -- จุดเล็ง (ระดับอก/หัว)
+}
+
+-- 📦 เรียกบริการหลัก
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local LocalPlr = Players.LocalPlayer
+local Mouse = LocalPlr:GetMouse()
+
+-- 🎨 สร้างเมนู
+local Gui = Instance.new("ScreenGui", LocalPlr.PlayerGui)
+Gui.Name = "LockAndShootUI"
+
+local Menu = Instance.new("Frame", Gui)
+Menu.Size = UDim2.new(0,Settings.MenuSize.W,0,Settings.MenuSize.H)
+Menu.Position = UDim2.new(0,Settings.MenuPos.X,0,Settings.MenuPos.Y)
+Menu.BackgroundColor3 = Color3.fromRGB(18,18,18)
+Menu.BorderColor3 = Color3.fromRGB(0,200,255)
+Menu.BorderSizePixel = 2
+Menu.Active = true; Menu.Draggable = true
+
+local ToggleBtn = Instance.new("TextButton",Menu)
+ToggleBtn.Size = UDim2.new(0.85,0,0.38,0)
+ToggleBtn.Position = UDim2.new(0.075,0,0.08,0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(65,160,90)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextScaled=true; ToggleBtn.Text="✅ เปิดระบบ"
+
+local LockBtn = Instance.new("TextButton",Menu)
+LockBtn.Size = UDim2.new(0.85,0,0.38,0)
+LockBtn.Position = UDim2.new(0.075,0,0.55,0)
+LockBtn.BackgroundColor3 = Color3.fromRGB(50,130,210)
+LockBtn.Font = Enum.Font.Gotham
+LockBtn.TextScaled=true; LockBtn.Text="🎯 ล็อกเป้า"
+
+-- 🎯 ตัวแปรสำคัญ
+local CurrentTarget = nil
+local Marker = nil
+
+-- 🔘 เปิด/ปิดระบบ
+ToggleBtn.MouseButton1Click:Connect(function()
+    Settings.Enabled=not Settings.Enabled
+    if Settings.Enabled then
+        ToggleBtn.Text="🔒 ปิดระบบ"
+        ToggleBtn.BackgroundColor3=Color3.fromRGB(180,60,60)
+    else
+        ToggleBtn.Text="✅ เปิดระบบ"
+        ToggleBtn.BackgroundColor3=Color3.fromRGB(60,160,90)
+        CurrentTarget=nil; if Marker then Marker.Parent=nil end
+    end
+end)
+
+-- 🧠 หา NPC ที่ใกล้ที่สุด (แก้จุดที่ไม่เจอในตัวก่อนหน้า)
+local function GetNearestNPC()
+    local Char = LocalPlr.Character; if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+    local Root = Char.HumanoidRootPart
+    local Best, MinDist = nil, Settings.SearchRadius
+
+    for _,Obj in ipairs(workspace:GetDescendants()) do
+        if Obj:IsA("Model") and Obj~=Char and Obj:FindFirstChild("Humanoid") and Obj:FindFirstChild("HumanoidRootPart") then
+            if not Players:GetPlayerFromCharacter(Obj) then -- ตัดผู้เล่นออก เหลือแค่ NPC
+                local Dist=(Root.Position - Obj.HumanoidRootPart.Position).Magnitude
+                if Dist<MinDist then MinDist=Dist; Best=Obj end
+            end
+        end
+    end
+    return Best
+end
+
+-- 🖍️ เครื่องหมายบอกตัวที่ล็อก
+local function SetMarker(Tar)
+    if Marker then Marker.Parent=nil end; if not Tar then return end
+    Marker=Instance.new("Part")
+    Marker.Name="TargetMark"
+    Marker.Shape=Enum.PartType.Ball
+    Marker.Size=Vector3.new(1,1,1)
+    Marker.Color=Color3.new(1,0.1,0.1)
+    Marker.Material=Enum.Material.Neon
+    Marker.Anchored=false; Marker.CanCollide=false; Marker.CastShadow=false
+    Marker.Parent=workspace
+
+    RunService.RenderStepped:Connect(function()
+        if Tar and Tar:FindFirstChild("HumanoidRootPart") and Marker and Marker.Parent then
+            Marker.CFrame=Tar.HumanoidRootPart.CFrame * CFrame.new(Settings.AimOffset)
+        end
+    end)
+end
+
+-- ⚡ ฟังก์ชันล็อก
+local function DoLock()
+    if not Settings.Enabled then return end
+    CurrentTarget=GetNearestNPC()
+    if CurrentTarget then
+        LockBtn.Text="✅ "..CurrentTarget.Name
+        SetMarker(CurrentTarget)
+        print("✅ ล็อกเป้าหมาย: ",CurrentTarget.Name)
+    else
+        LockBtn.Text="❌ ไม่เจอเป้า"
+        CurrentTarget=nil; if Marker then Marker.Parent=nil end
+        task.delay(1.4,function() if LockBtn then LockBtn.Text="🎯 ล็อกเป้า" end end)
+    end
+end
+
+-- 🔫 คลิกซ้าย -> ยิงไปที่เป้าที่ล็อกไว้โดยตรง — ส่วนสำคัญที่เพิ่มเข้ามา
+UIS.InputBegan:Connect(function(Input,Proc)
+    if Proc then return end
+    -- กรณีล็อกด้วยปุ่มหรือเมนู
+    if Input.KeyCode==Settings.LockKey then DoLock() end
+    if Input.UserInputType==Enum.UserInputType.MouseButton1 and Settings.Enabled and CurrentTarget then
+        if CurrentTarget:FindFirstChild("HumanoidRootPart") then
+            local AimPos = CurrentTarget.HumanoidRootPart.Position + Settings.AimOffset
+            print("🔫 ยิงไปที่: ",CurrentTarget.Name," ตำแหน่ง:",AimPos)
+            -- 👇 ตรงนี้คือจุดสำคัญ: เกมส่วนใหญ่ต้องการให้ส่งตำแหน่งเป้าหมายให้ระบบยิง/อาวุธ
+            -- ถ้าอาวุธของคุณต้องใช้ Mouse.Hit ให้ใช้แทนแบบนี้:
+            local FakeHit = CFrame.new(AimPos)
+            -- ✅ ตัวอย่าง: ถ้าต้องบังคับจุดเล็ง
+            -- แก้ตรงนี้ให้เข้ากับระบบยิงของเกม:
+            -- Mouse.Hit = FakeHit -- (ถ้าทำได้ในเกมนั้น)
+            -- หรือเรียกโค้ดยิงพร้อมตำแหน่ง AimPos
+        end
+    end
+end)
+LockBtn.MouseButton1Click:Connect(DoLock)
+
+print("✅ พร้อม! ปุ่มล็อก: "..Settings.LockKey.Name.." | 🖱️ คลิกซ้าย = ยิงเป้าที่ล็อกไว้")
