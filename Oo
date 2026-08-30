@@ -1,0 +1,38 @@
+-- ModuleScript: TargetService
+
+local Players = game:GetService("Players")
+
+local TargetService = {}
+
+function TargetService.GetNearestNPC(character, maxDistance)
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return nil
+	end
+
+	local nearest
+	local nearestDistance = maxDistance or math.huge
+
+	for _, npc in ipairs(workspace:GetDescendants()) do
+		if npc:IsA("Model") and npc ~= character then
+			local humanoid = npc:FindFirstChildOfClass("Humanoid")
+			local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+
+			if humanoid and npcRoot
+				and humanoid.Health > 0
+				and not Players:GetPlayerFromCharacter(npc) then
+
+				local distance = (root.Position - npcRoot.Position).Magnitude
+
+				if distance < nearestDistance then
+					nearest = npc
+					nearestDistance = distance
+				end
+			end
+		end
+	end
+
+	return nearest
+end
+
+return TargetService
