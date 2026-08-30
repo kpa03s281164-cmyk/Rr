@@ -1,0 +1,212 @@
+-- ⚙️ การตั้งค่าเริ่มต้น
+local Settings = {
+    MenuPos = {X=150, Y=200},
+    SearchRadius = 800,
+    FOV = 20,
+    AimPriority = "Head",
+    BlockCheck = true,
+    KeyBind = Enum.KeyCode.F
+}
+
+-- 📦 เรียกบริการ
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlr = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- 🎨 เมนูสวยๆ เหมือนภาพ
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "AimLock_Modern"
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.Parent = LocalPlr:WaitForChild("PlayerGui")
+
+-- เมนูหลัก
+local Menu = Instance.new("Frame")
+Menu.Name = "ModernMenu"
+Menu.Size = UDim2.new(0, 230, 0, 160)
+Menu.Position = UDim2.new(0, Settings.MenuPos.X, 0, Settings.MenuPos.Y)
+Menu.BackgroundColor3 = Color3.fromRGB(22, 25, 35)
+Menu.BorderColor3 = Color3.fromRGB(0, 170, 255)
+Menu.BorderSizePixel = 2
+Menu.Active = true
+Menu.Draggable = true
+Menu.Parent = Gui
+
+-- หัวเมนู
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1,0,0,32)
+TitleBar.BackgroundTransparency = 1
+TitleBar.Parent = Menu
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.7,0,1,0)
+Title.Position = UDim2.new(0.05,0,0,0)
+Title.BackgroundTransparency=1
+Title.Font = Enum.Font.GothamBold
+Title.Text = "⚡ AIMLOCK"
+Title.TextColor3 = Color3.fromRGB(0, 190, 255)
+Title.TextScaled=true
+Title.Parent=TitleBar
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size=UDim2.new(0,26,0,26)
+MinBtn.Position=UDim2.new(0.86,0,0.07,0)
+MinBtn.BackgroundColor3=Color3.fromRGB(35,40,55)
+MinBtn.BorderColor3=Color3.fromRGB(0,170,255)
+MinBtn.Text = "−"
+MinBtn.Font=Enum.Font.GothamBold
+MinBtn.TextColor3=Color3.new(1,1,1)
+MinBtn.Parent=Menu
+
+-- ปุ่มเปิด-ปิด
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0.85,0,0.23,0)
+ToggleBtn.Position = UDim2.new(0.075,0,0.27,0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 230)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "ON"
+ToggleBtn.TextColor3=Color3.new(1,1,1)
+ToggleBtn.TextScaled=true
+ToggleBtn.Parent = Menu
+
+-- FOV
+local FOVLabel = Instance.new("TextLabel")
+FOVLabel.Size=UDim2.new(0.85,0,0.14,0)
+FOVLabel.Position=UDim2.new(0.075,0,0.55,0)
+FOVLabel.BackgroundTransparency=1
+FOVLabel.Font=Enum.Font.Gotham
+FOVLabel.Text = "FOV: "..Settings.FOV.."%"
+FOVLabel.TextColor3=Color3.new(0.8,0.8,0.8)
+FOVLabel.TextXAlignment=Enum.TextXAlignment.Left
+FOVLabel.Parent=Menu
+
+-- แถบเลื่อน FOV
+local SliderBg = Instance.new("Frame")
+SliderBg.Size=UDim2.new(0.85,0,0.08,0)
+SliderBg.Position=UDim2.new(0.075,0,0.70,0)
+SliderBg.BackgroundColor3=Color3.fromRGB(35,40,60)
+SliderBg.Parent=Menu
+
+local SliderFill = Instance.new("Frame")
+SliderFill.Size=UDim2.new(0,Settings.FOV,1,0)
+SliderFill.BackgroundColor3=Color3.fromRGB(0,170,255)
+SliderFill.Parent=SliderBg
+
+-- ตัวเลื่อน
+local SliderKnob = Instance.new("TextButton")
+SliderKnob.Size=UDim2.new(0,14,1.6,0)
+SliderKnob.Position=UDim2.new(0,Settings.FOV-7,-0.3,0)
+SliderKnob.BackgroundColor3=Color3.new(1,1,1)
+SliderKnob.AutoLocalize=false
+SliderKnob.Parent=SliderBg
+
+-- 🎯 ตัวแปรทำงาน
+local Enabled = true
+local Minimized = false
+local CurrentTarget, Ring, RingConn = nil, nil, nil
+
+-- ✅ ย่อ-ขยายเมนู
+MinBtn.MouseButton1Click:Connect(function()
+    Minimized=not Minimized
+    Menu.Size= Minimized and UDim2.new(0,230,0,34) or UDim2.new(0,230,0,160)
+    ToggleBtn.Visible=not Minimized
+    FOVLabel.Visible=not Minimized
+    SliderBg.Visible=not Minimized
+end)
+
+-- ✅ ปรับ FOV
+local DragFOV = false
+SliderKnob.MouseButton1Down:Connect(function() DragFOV=true end)
+UIS.InputChanged:Connect(function(Input)
+    if DragFOV and Input.UserInputType==Enum.UserInputType.MouseMovement then
+        local PosX = SliderBg.AbsolutePosition.X
+        local Wid = SliderBg.AbsoluteSize.X
+        local Perc = math.clamp(((Input.Position.X - PosX)/Wid)*100,5,100)
+        Settings.FOV=math.floor(Perc)
+        FOVLabel.Text="FOV: "..Settings.FOV.."%"
+        SliderFill.Size=UDim2.new(Perc/100,0,1,0)
+        SliderKnob.Position=UDim2.new(Perc/100, -7, -0.3,0)
+    end
+end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then DragFOV=false end end)
+
+-- ✅ ตรวจสายตาไม่ทะลุกำแพง
+local function HasLineOfSight(From, To)
+    if not Settings.BlockCheck then return true end
+    local Ray = Ray.new(From, (To-From).Unit*((To-From).Magnitude-4))
+    local Hit = Workspace:FindPartOnRayWithIgnoreList(Ray, {LocalPlr.Character}, false, true)
+    return Hit==nil
+end
+
+-- ✅ หาผู้เล่นใกล้+อยู่ในFOV+เห็นชัด
+local function GetNearestPlayer()
+    local Char=LocalPlr.Character
+    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return nil end
+    local Root=Char.HumanoidRootPart
+    local Best,MinDist=nil,Settings.SearchRadius
+    for _,P in ipairs(Players:GetPlayers())do
+        if P~=LocalPlr and P.Character and P.Character:FindFirstChild("HumanoidRootPart") then
+            local PRoot=P.Character.HumanoidRootPart
+            local Vec=Camera:WorldToViewportPoint(PRoot.Position)
+            if Vec.Z>0 then
+                local OnScreen=(Vector2.new(Vec.X,Vec.Y)-Gui.AbsoluteSize/2).Magnitude <= (Settings.FOV/100)*280
+                local Dist=(Root.Position-PRoot.Position).Magnitude
+                if Dist<MinDist and HasLineOfSight(Root.Position,PRoot.Position) and OnScreen then
+                    MinDist=Dist; Best=P.Character
+                end
+            end
+        end
+    end
+    return Best
+end
+
+-- ✅ วงล็อกสีฟ้า
+local function SetRing(Tar)
+    if Ring then Ring.Parent=nil end; if RingConn then RingConn:Disconnect() end
+    if not Tar then return end
+    local AimPart=Tar:FindFirstChild("Head") or Tar.HumanoidRootPart
+    Ring=Instance.new("Part")
+    Ring.Name="TargetRing"
+    Ring.Shape=Enum.PartType.Cylinder
+    Ring.Size=Vector3.new(0.25,2.4,2.4)
+    Ring.Color=Color3.fromRGB(0,190,255)
+    Ring.Material=Enum.Material.Neon
+    Ring.Transparency=0.25
+    Ring.Anchored=true;Ring.CanCollide=false;Ring.CastShadow=false
+    Ring.Parent=Workspace
+
+    RingConn=RunService.RenderStepped:Connect(function()
+        if not Tar or Tar.Humanoid.Health<=0 or not AimPart then RingConn:Disconnect();Ring.Parent=nil;return end
+        local Pos=AimPart.Position+Vector3.new(0,1.2,0)
+        Ring.CFrame=CFrame.new(Pos,Pos+(Camera.CFrame.Position-Pos).Unit*2)*CFrame.Angles(math.rad(90),0,0)
+    end)
+end
+
+-- ✅ ล็อกหลัก
+ToggleBtn.MouseButton1Click:Connect(function()
+    Enabled=not Enabled
+    ToggleBtn.BackgroundColor3=Enabled and Color3.fromRGB(0,140,230) or Color3.fromRGB(80,80,100)
+    ToggleBtn.Text=Enabled and "ON" or "OFF"
+    if not Enabled then CurrentTarget=nil;if Ring then Ring.Parent=nil end end
+end)
+
+local function Lock()
+    if not Enabled then return end
+    CurrentTarget=GetNearestPlayer()
+    if CurrentTarget then
+        SetRing(CurrentTarget)
+        ToggleBtn.Text="✅ ล็อก:"..CurrentTarget.Name
+    else
+        ToggleBtn.Text="❌ ไม่เจอเป้า"
+        if Ring then Ring.Parent=nil end
+        task.delay(1.2,function() ToggleBtn.Text=Enabled and "ON" or "OFF" end)
+    end
+end
+
+-- ปุ่มลัด
+UIS.InputBegan:Connect(function(i,p) if not p and i.KeyCode==Settings.KeyBind then Lock() end end)
+LockBtn=ToggleBtn -- ง่ายต่อการเรียก
+
+print("✅ เมนูสวยเหมือนภาพพร้อมใช้! ฟ้า-ดำ ลากได้ ย่อได้ ปุ่ม F")
