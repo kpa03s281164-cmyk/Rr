@@ -1,0 +1,21 @@
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "TestMenu"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.fromOffset(160, 50)
+button.Position = UDim2.fromOffset(20, 100)
+button.Text = "TARGET : OFF"
+button.TextSize = 16
+button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Parent = gui
+
+button.Activated:Connect(function()
+	button.Text = "TARGET : ON"
+end)
