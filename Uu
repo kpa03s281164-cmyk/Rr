@@ -1,0 +1,79 @@
+-- LocalScript
+-- StarterPlayer > StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+local enabled = true
+
+-- ปุ่มสกิลที่รองรับ
+local skillKeys = {
+	[Enum.KeyCode.E] = true,
+	[Enum.KeyCode.Z] = true,
+	[Enum.KeyCode.X] = true,
+	[Enum.KeyCode.Y] = true,
+	[Enum.KeyCode.U] = true,
+}
+
+-- หา NPC ที่ใกล้ที่สุด
+local function getNearestNPC()
+	local character = player.Character
+	if not character then return nil end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return nil end
+
+	local nearestNPC = nil
+	local nearestDistance = math.huge
+
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") and model ~= character then
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local npcRoot = model:FindFirstChild("HumanoidRootPart")
+
+			if humanoid and npcRoot and humanoid.Health > 0 then
+				if not Players:GetPlayerFromCharacter(model) then
+					local distance = (root.Position - npcRoot.Position).Magnitude
+
+					if distance < nearestDistance then
+						nearestDistance = distance
+						nearestNPC = model
+					end
+				end
+			end
+		end
+	end
+
+	return nearestNPC
+end
+
+-- ตรงนี้ให้ใส่ระบบสกิล/เลเซอร์ของเกมคุณ
+local function fireSkill(skillKey, target)
+	if not target then return end
+
+	local targetRoot = target:FindFirstChild("HumanoidRootPart")
+	if not targetRoot then return end
+
+	print("ใช้สกิล:", skillKey.Name)
+	print("เป้าหมาย:", target.Name)
+
+	-- ตัวอย่าง:
+	-- ยิงเลเซอร์/กระสุนจากตัวละครไป targetRoot.Position
+	-- กล้องจะไม่ถูกเปลี่ยน
+end
+
+-- กด E / Z / X / Y / U
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if not enabled then return end
+
+	if skillKeys[input.KeyCode] then
+		local target = getNearestNPC()
+
+		if target then
+			fireSkill(input.KeyCode, target)
+		end
+	end
+end)
