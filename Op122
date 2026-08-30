@@ -1,0 +1,326 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local aimEnabled = false
+local espEnabled = false
+local instantPickup = true
+
+local fovSize = 150
+local aimPart = "Head"
+local maxDistance = 2000
+local smoothness = 0.15
+
+local target
+local highlights = {}
+
+--================================
+-- GUI
+--================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "GameSettings"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local menu = Instance.new("Frame")
+menu.Size = UDim2.fromOffset(140, 145)
+menu.Position = UDim2.fromOffset(20, 100)
+menu.BackgroundColor3 = Color3.fromRGB(30,30,35)
+menu.BorderSizePixel = 0
+menu.Active = true
+menu.Parent = gui
+
+Instance.new("UICorner", menu).CornerRadius = UDim.new(0,8)
+
+local function makeButton(text, y)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1,-12,0,22)
+	b.Position = UDim2.fromOffset(6,y)
+	b.Text = text
+	b.TextSize = 9
+	b.Font = Enum.Font.GothamBold
+	b.TextColor3 = Color3.new(1,1,1)
+	b.BackgroundColor3 = Color3.fromRGB(60,60,70)
+	b.BorderSizePixel = 0
+	b.Parent = menu
+
+	Instance.new("UICorner",b).CornerRadius = UDim.new(0,5)
+
+	return b
+end
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,18)
+title.BackgroundTransparency = 1
+title.Text = "Settings"
+title.TextSize = 10
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.new(1,1,1)
+title.Parent = menu
+
+local aimButton = makeButton("AIM : OFF",22)
+local espButton = makeButton("ESP : OFF",48)
+local pickupButton = makeButton("PICKUP : ON",74)
+
+local fovLabel = Instance.new("TextLabel")
+fovLabel.Size = UDim2.new(1,-12,0,18)
+fovLabel.Position = UDim2.fromOffset(6,100)
+fovLabel.BackgroundTransparency = 1
+fovLabel.TextColor3 = Color3.new(1,1,1)
+fovLabel.TextSize = 9
+fovLabel.TextXAlignment = Enum.TextXAlignment.Left
+fovLabel.Text = "FOV : 150"
+fovLabel.Parent = menu
+
+local minus = makeButton("-",120)
+minus.Size = UDim2.fromOffset(55,18)
+
+local plus = makeButton("+",120)
+plus.Size = UDim2.fromOffset(55,18)
+plus.Position = UDim2.fromOffset(67,120)
+
+--================================
+-- FOV
+--================================
+
+local circle = Instance.new("Frame")
+circle.AnchorPoint = Vector2.new(.5,.5)
+circle.Position = UDim2.fromScale(.5,.5)
+circle.Size = UDim2.fromOffset(fovSize,fovSize)
+circle.BackgroundTransparency = 1
+circle.BorderSizePixel = 0
+circle.Parent = gui
+
+local circleCorner = Instance.new("UICorner")
+circleCorner.CornerRadius = UDim.new(1,0)
+circleCorner.Parent = circle
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Parent = circle
+
+--================================
+-- ESP
+--================================
+
+local function createESP(other)
+	if other == player or highlights[other] then
+		return
+	end
+
+	local h = Instance.new("Highlight")
+	h.Name = "BlueESP"
+	h.FillColor = Color3.fromRGB(0,170,255)
+	h.OutlineColor = Color3.fromRGB(0,100,255)
+	h.FillTransparency = .65
+	h.OutlineTransparency = 0
+	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	h.Enabled = espEnabled
+	h.Parent = gui
+
+	highlights[other] = h
+
+	local function update()
+		h.Adornee = other.Character
+	end
+
+	update()
+
+	other.CharacterAdded:Connect(function()
+		task.wait()
+		update()
+	end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+	createESP(p)
+end
+
+Players.PlayerAdded:Connect(createESP)
+
+Players.PlayerRemoving:Connect(function(p)
+	if highlights[p] then
+		highlights[p]:Destroy()
+		highlights[p] = nil
+	end
+end)
+
+local function updateESP()
+	for _, h in pairs(highlights) do
+		h.Enabled = espEnabled
+	end
+end
+
+--================================
+-- TARGET
+--================================
+
+local function findTarget()
+	local best
+	local bestDistance = math.huge
+
+	local center = Vector2.new(
+		camera.ViewportSize.X/2,
+		camera.ViewportSize.Y/2
+	)
+
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= player and p.Character then
+
+			local humanoid =
+				p.Character:FindFirstChildOfClass("Humanoid")
+
+			local part =
+				p.Character:FindFirstChild(aimPart)
+
+			if humanoid and part and humanoid.Health > 0 then
+
+				local screen, visible =
+					camera:WorldToViewportPoint(part.Position)
+
+				local distance =
+					(camera.CFrame.Position-part.Position).Magnitude
+
+				if visible
+					and screen.Z > 0
+					and distance <= maxDistance then
+
+					local screenDistance =
+						(Vector2.new(screen.X,screen.Y)-center).Magnitude
+
+					if screenDistance <= fovSize/2
+						and screenDistance < bestDistance then
+
+						bestDistance = screenDistance
+						best = p
+					end
+				end
+			end
+		end
+	end
+
+	return best
+end
+
+--================================
+-- AIM
+--================================
+
+RunService.RenderStepped:Connect(function()
+
+	updateESP()
+
+	if not aimEnabled then
+		target = nil
+		return
+	end
+
+	target = findTarget()
+
+	if target and target.Character then
+
+		local part =
+			target.Character:FindFirstChild(aimPart)
+
+		if part then
+
+			local desired =
+				CFrame.lookAt(
+					camera.CFrame.Position,
+					part.Position
+				)
+
+			camera.CFrame =
+				camera.CFrame:Lerp(
+					desired,
+					smoothness
+				)
+		end
+	end
+end)
+
+--================================
+-- BUTTONS
+--================================
+
+aimButton.Activated:Connect(function()
+	aimEnabled = not aimEnabled
+
+	aimButton.Text =
+		aimEnabled and "AIM : ON" or "AIM : OFF"
+end)
+
+espButton.Activated:Connect(function()
+	espEnabled = not espEnabled
+	updateESP()
+
+	espButton.Text =
+		espEnabled and "ESP : ON" or "ESP : OFF"
+end)
+
+pickupButton.Activated:Connect(function()
+	instantPickup = not instantPickup
+
+	pickupButton.Text =
+		instantPickup and "PICKUP : ON" or "PICKUP : OFF"
+end)
+
+minus.Activated:Connect(function()
+	fovSize = math.max(50,fovSize-25)
+	fovLabel.Text = "FOV : "..fovSize
+	circle.Size = UDim2.fromOffset(fovSize,fovSize)
+end)
+
+plus.Activated:Connect(function()
+	fovSize = math.min(500,fovSize+25)
+	fovLabel.Text = "FOV : "..fovSize
+	circle.Size = UDim2.fromOffset(fovSize,fovSize)
+end)
+
+--================================
+-- DRAG MENU
+--================================
+
+local dragging = false
+local dragStart
+local startPos
+
+menu.InputBegan:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = true
+		dragStart = input.Position
+		startPos = menu.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+	if not dragging then return end
+
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		local delta = input.Position-dragStart
+
+		menu.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset+delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset+delta.Y
+		)
+	end
+end)
